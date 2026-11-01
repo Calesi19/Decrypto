@@ -4,20 +4,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        terminal: '#050807',
-        panel: '#0b100e',
-        phosphor: '#52ffa8',
-        cyber: '#55d6ff',
-        amberish: '#ffd166',
-        danger: '#ff5d73',
+        obsidian: '#121214',
+        casing: '#181A1F',
+        plate: '#1F2228',
+        rule: '#343943',
+        ink: '#E0E0E0',
+        muted: '#A3A9B3',
+        dim: '#8A909B',
+        phosphor: '#33FF66',
+        // Spec fills, plus lighter inks that clear 4.5:1 for small text.
+        alpha: { DEFAULT: '#E53935', ink: '#FF7D78' },
+        beta: { DEFAULT: '#1E88E5', ink: '#6CB8F7' },
+        secure: { DEFAULT: '#43A047', ink: '#74D178' },
+        intercepted: '#FB8C00',
+        compromised: { DEFAULT: '#E53935', ink: '#FF7D78' },
       },
       fontFamily: {
-        mono: ['"JetBrains Mono"', '"SFMono-Regular"', 'Consolas', 'monospace'],
-        sans: ['Inter', 'ui-sans-system', 'system-ui', 'sans-serif'],
+        display: ['"Share Tech Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        mono: ['"JetBrains Mono Variable"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
-      boxShadow: {
-        glow: '0 0 28px rgba(82, 255, 168, 0.13)',
-        panel: '0 18px 50px rgba(0,0,0,0.34)',
+      screens: {
+        console: '1100px',
       },
     },
   },

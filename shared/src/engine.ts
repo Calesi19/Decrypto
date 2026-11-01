@@ -47,6 +47,7 @@ export interface RoundRevealTeam {
 
 export interface RoundReveal {
   round: number;
+  revealedAt: number;
   teams: Record<TeamId, RoundRevealTeam>;
   interceptionTokensAwarded: TeamId[];
   miscommunicationTokensAwarded: TeamId[];
@@ -399,6 +400,7 @@ function resolveReveal(state: GameState): void {
 
   const reveal: RoundReveal = {
     round: state.round,
+    revealedAt: Date.now(),
     teams: revealTeams,
     interceptionTokensAwarded,
     miscommunicationTokensAwarded,
@@ -491,8 +493,9 @@ function requirePlayer(state: GameState, playerId: string): Player {
   return player;
 }
 
+// Team ids stay 'black'/'white' on the wire; players know them as Alpha and Beta.
 function teamLabel(team: TeamId): string {
-  return team === 'black' ? 'Black' : 'White';
+  return team === 'black' ? 'Alpha' : 'Beta';
 }
 
 function cloneGuess(guess: GuessState): GuessState {

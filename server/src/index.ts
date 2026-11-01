@@ -56,7 +56,18 @@ const clientDist = path.resolve(
   '../../client/dist',
 );
 if (existsSync(clientDist)) {
-  app.use(express.static(clientDist));
+  app.use(
+    express.static(clientDist, {
+      // Vite's hashed assets never change; everything else, sw.js above all, must revalidate.
+      setHeaders(response, filePath) {
+        const hashed = filePath.includes(`${path.sep}assets${path.sep}`);
+        response.setHeader(
+          'Cache-Control',
+          hashed ? 'public, max-age=31536000, immutable' : 'no-cache',
+        );
+      },
+    }),
+  );
   app.use((request, response, next) => {
     if (request.method === 'GET' && !request.path.startsWith('/socket.io')) {
       response.sendFile(path.join(clientDist, 'index.html'));
@@ -223,7 +234,7 @@ io.on('connection', (socket) => {
     try {
       const { room, roomCode, playerId } = requireSession(socket);
       if (payload.team !== null && payload.team !== 'black' && payload.team !== 'white') {
-        throw new Error('Choose Black, White, or no team.');
+        throw new Error('Choose Alpha, Beta, or no team.');
       }
       chooseTeam(room.state, playerId, payload.team ?? null);
       touch(room);

@@ -1,1 +1,1 @@
-{"compilerOptions":{"esModuleInterop":true,"forceConsistentCasingInFileNames":true,"module":"ESNext","moduleResolution":"Bundler","noEmit":true,"strict":true,"target":"ES2022"},"include":["vite.config.ts"]}
+{"compilerOptions":{"esModuleInterop":true,"forceConsistentCasingInFileNames":true,"module":"ESNext","moduleResolution":"Bundler","noEmit":true,"strict":true,"target":"ES2022","skipLibCheck":true},"include":["vite.config.ts"]}
