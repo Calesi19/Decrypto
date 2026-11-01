@@ -234,7 +234,7 @@ io.on('connection', (socket) => {
     try {
       const { room, roomCode, playerId } = requireSession(socket);
       if (payload.team !== null && payload.team !== 'black' && payload.team !== 'white') {
-        throw new Error('Choose Alpha, Beta, or no team.');
+        throw new Error('Choose Black, White, or no team.');
       }
       chooseTeam(room.state, playerId, payload.team ?? null);
       touch(room);

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { PlayerView, TeamId } from '@decrypto/shared';
-import { Notice, StationHead, TeamTag } from '../components/Bits';
-import { Tag } from '../components/Crew';
-import { TEAMS, playerName, teamBorder, teamInk, teamName } from '../lib/game';
+import { Notice, Tag, TaskHead } from '../components/Bits';
+import { Lamp } from '../components/Hardware';
+import { TEAMS, playerName, teamName } from '../lib/game';
 
 function TeamBay(props: {
   team: TeamId;
@@ -13,27 +13,17 @@ function TeamBay(props: {
   const members = props.state.players.filter((player) => player.team === props.team);
   const selected = props.state.viewer.team === props.team;
   return (
-    <article className={`border bg-casing ${selected ? teamBorder(props.team) : 'border-rule'}`}>
-      <button
-        type="button"
-        onClick={() => props.onChooseTeam(selected ? null : props.team)}
-        disabled={props.busy}
-        aria-pressed={selected}
-        className="flex min-h-14 w-full items-center gap-3 px-3 text-left"
-      >
-        <TeamTag team={props.team} size="lg" />
-        <span className="min-w-0 flex-1">
-          <span className="block font-display text-xl uppercase tracking-[0.12em] text-white">
-            Team {teamName(props.team)}
-          </span>
-        </span>
-        <span className={`eyebrow ${teamInk(props.team)}`}>{selected ? 'Leave' : 'Join'}</span>
-      </button>
-      <ul className="border-t border-rule px-3 py-1 text-sm">
+    <article className="terminal" data-team={props.team}>
+      <div className="terminal-plate">
+        <h3 className="stencil terminal-name">Team {teamName(props.team)}</h3>
+        <Lamp on={selected} />
+        <span className="terminal-vents" aria-hidden="true" />
+      </div>
+      <ul className="roster">
         {members.length ? (
           members.map((player) => (
-            <li key={player.id} className="flex min-h-9 items-center justify-between gap-2">
-              <span className={`truncate ${player.connected ? 'text-ink' : 'text-dim'}`}>
+            <li key={player.id}>
+              <span className={`truncate ${player.connected ? '' : 'roster-off'}`}>
                 {player.name}
                 {player.id === props.state.viewer.id && ' (you)'}
               </span>
@@ -44,9 +34,19 @@ function TeamBay(props: {
             </li>
           ))
         ) : (
-          <li className="flex min-h-9 items-center text-dim">Nobody yet</li>
+          <li className="roster-empty">Nobody yet</li>
         )}
       </ul>
+      <button
+        type="button"
+        onClick={() => props.onChooseTeam(selected ? null : props.team)}
+        disabled={props.busy}
+        aria-pressed={selected}
+        aria-label={`${selected ? 'Leave' : 'Join'} Team ${teamName(props.team)}`}
+        className="hw-key"
+      >
+        {selected ? 'Leave team' : 'Join team'}
+      </button>
     </article>
   );
 }
@@ -70,7 +70,7 @@ function ShareRoom({ roomCode }: { roomCode: string }) {
   };
 
   return (
-    <button type="button" onClick={() => void share()} className="btn !w-auto flex-none">
+    <button type="button" onClick={() => void share()} className="hw-key min-w-[84px] px-3">
       {copied ? 'Copied' : 'Share'}
     </button>
   );
@@ -92,15 +92,11 @@ export function Lobby(props: {
   const host = state.players.find((player) => player.isHost);
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[640px] flex-col gap-5 pt-4">
-      <StationHead
-        eyebrow="Assembly"
-        title="Pick a side"
-        note="Share the code. Everyone picks a team, two players minimum on each."
-      />
+    <div className="mx-auto flex min-h-full w-full max-w-[640px] flex-col gap-4 pt-4">
+      <TaskHead state={state} title="Pick a side" note="Two players or more on each team." />
 
-      <div className="flex items-stretch gap-2">
-        <p className="flex min-w-0 flex-1 items-center justify-center border border-rule bg-[#0d0d0f] font-display text-3xl tracking-[0.3em] text-phosphor">
+      <div className="room-plate">
+        <p className="home-screen room-code">
           <span className="sr-only">Room code </span>
           {state.roomCode}
         </p>
@@ -120,33 +116,34 @@ export function Lobby(props: {
       </div>
 
       {unassigned.length > 0 && (
-        <Notice quiet>Unassigned: {unassigned.map((player) => player.name).join(', ')}</Notice>
+        <Notice quiet tone="paper">
+          Still choosing: {unassigned.map((player) => player.name).join(', ')}
+        </Notice>
       )}
 
       {short.length > 0 && (
-        <p className="text-sm text-muted">
+        <p>
           {short.map(teamName).join(' and ')} {short.length > 1 ? 'need' : 'needs'} at least two
           players.
         </p>
       )}
 
       {/* Sticky: browser chrome eats the viewport, and the host must always reach Begin. */}
-      <div className="sticky bottom-0 mt-auto grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 bg-obsidian pb-[max(16px,var(--safe-bottom))] pt-2">
-        <button type="button" onClick={props.onLeave} disabled={props.busy} className="btn">
+      <div className="action-bar mt-auto grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-3">
+        <button
+          type="button"
+          onClick={props.onLeave}
+          disabled={props.busy}
+          className="hw-btn hw-btn-plain"
+        >
           Leave
         </button>
         {state.isHost ? (
-          <button
-            onClick={props.onStart}
-            disabled={!ready || props.busy}
-            className="btn btn-primary"
-          >
-            Begin operation
+          <button onClick={props.onStart} disabled={!ready || props.busy} className="hw-btn">
+            {ready ? 'Begin' : 'Waiting for teams'}
           </button>
         ) : (
-          <p className="flex min-h-[52px] items-center justify-center border border-rule px-2 text-center text-sm text-muted">
-            Waiting for {playerName(state, host?.id)}
-          </p>
+          <p className="text-center">Waiting for {playerName(state, host?.id)}</p>
         )}
       </div>
     </div>

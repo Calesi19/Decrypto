@@ -493,9 +493,8 @@ function requirePlayer(state: GameState, playerId: string): Player {
   return player;
 }
 
-// Team ids stay 'black'/'white' on the wire; players know them as Alpha and Beta.
 function teamLabel(team: TeamId): string {
-  return team === 'black' ? 'Alpha' : 'Beta';
+  return team === 'black' ? 'Black' : 'White';
 }
 
 function cloneGuess(guess: GuessState): GuessState {

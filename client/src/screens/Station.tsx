@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState } from 'react';
 import type {
   Digit,
   GuessDigit,
@@ -8,202 +8,17 @@ import type {
   RoundReveal,
   TeamId,
 } from '@decrypto/shared';
-import {
-  ArmedButton,
-  SectionRule,
-  StationHead,
-  StatusLine,
-  TeamLabel,
-  Teletype,
-} from '../components/Bits';
-import { FilterSlider, ShieldStrip } from '../components/Filter';
+import { ArmedButton, TaskHead, Teletype } from '../components/Bits';
+import { Lamp, Wheels } from '../components/Hardware';
 import { KeywordBoard } from '../components/Log';
-import { ShieldPanel } from '../components/Shield';
+import { KeywordPanel } from '../components/Shield';
 import { cue } from '../lib/feedback';
-import {
-  DIGITS,
-  TEAMS,
-  clock,
-  formatCode,
-  messageId,
-  otherTeam,
-  playerName,
-  teamName,
-} from '../lib/game';
-
-const CLUE_DRAFT_KEY = 'decrypto-clue-draft';
-
-function readClueDraft(key: string): string[] {
-  try {
-    const saved = JSON.parse(window.localStorage.getItem(CLUE_DRAFT_KEY) ?? 'null');
-    if (saved?.key === key && Array.isArray(saved.clues)) return saved.clues;
-  } catch {
-    // A corrupt draft is not worth reporting; start clean.
-  }
-  return ['', '', ''];
-}
-
-function EncodeForm(props: {
-  state: PlayerView;
-  team: TeamId;
-  busy: boolean;
-  onSubmit: (clues: string[]) => void;
-}) {
-  const { state, team } = props;
-  const draftKey = `${state.roomCode}-${state.round}-${team}`;
-  // Saved on every keystroke: mobile browsers evict backgrounded apps without warning.
-  const [clues, setClues] = useState(() => readClueDraft(draftKey));
-  const inputs = useRef<(HTMLInputElement | null)[]>([]);
-  const keywords = state.keywords[team] ?? [];
-  const code = state.currentCode;
-  if (!code) return null;
-
-  const clash = clues.map((clue) =>
-    keywords.findIndex((word) => word.toLocaleLowerCase() === clue.trim().toLocaleLowerCase()),
-  );
-  const ready = clues.every((clue) => clue.trim()) && clash.every((index) => index === -1);
-
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    const firstEmpty = clues.findIndex((clue) => !clue.trim());
-    if (firstEmpty !== -1) {
-      inputs.current[firstEmpty]?.focus();
-      return;
-    }
-    if (!ready) return;
-    cue('confirm');
-    props.onSubmit(clues);
-  };
-
-  return (
-    <form onSubmit={onSubmit} className="space-y-4" autoComplete="off">
-      <FilterSlider />
-      {code.map((digit, index) => (
-        <div key={index} data-clue className="space-y-1">
-          <ShieldStrip
-            tag={String(digit)}
-            text={keywords[digit - 1] ?? ''}
-            seed={`${team}-${digit}`}
-          />
-          <label className="block">
-            <span className="sr-only">Clue {index + 1}</span>
-            <input
-              ref={(element) => {
-                inputs.current[index] = element;
-              }}
-              value={clues[index]}
-              onChange={(event) => {
-                const next = [...clues];
-                next[index] = event.target.value;
-                setClues(next);
-                window.localStorage.setItem(
-                  CLUE_DRAFT_KEY,
-                  JSON.stringify({ key: draftKey, clues: next }),
-                );
-              }}
-              onFocus={(event) => {
-                // After the keyboard opens, keep the keyword and its clue on screen together.
-                const pair = event.currentTarget.closest('[data-clue]');
-                window.setTimeout(() => pair?.scrollIntoView({ block: 'center' }), 320);
-              }}
-              onKeyDown={(event) => {
-                // Browsers ignore Enter while the submit button is disabled, so it is wired here.
-                if (event.key !== 'Enter') return;
-                event.preventDefault();
-                if (index < 2) inputs.current[index + 1]?.focus();
-                else event.currentTarget.form?.requestSubmit();
-              }}
-              className="field"
-              placeholder={`Clue ${index + 1}`}
-              maxLength={48}
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint={index < 2 ? 'next' : 'send'}
-              aria-invalid={clash[index] !== -1}
-            />
-          </label>
-          {clash[index] !== -1 && (
-            <p className="text-sm text-intercepted">That is keyword {clash[index] + 1}. Pick another.</p>
-          )}
-        </div>
-      ))}
-      <button disabled={props.busy || !ready} className="btn btn-primary">
-        Transmit clues
-      </button>
-    </form>
-  );
-}
-
-function ClueCard({ state, team }: { state: PlayerView; team: TeamId }) {
-  const clues = state.submittedClues[team];
-  return (
-    <article className="printout">
-      <header className="flex items-center justify-between gap-3">
-        <TeamLabel team={team} />
-        <p className="text-xs text-muted">MSG {messageId(state.round, team)}</p>
-      </header>
-      {clues ? (
-        <ol className="mt-2">
-          {clues.map((clue, index) => (
-            <li key={index} className="printout-line">
-              <span className="text-xs text-dim">{index + 1}</span>
-              <span className="text-white">
-                <Teletype
-                  id={`${state.roomCode}-${state.round}-${team}-${index}`}
-                  text={clue}
-                  delay={index * 180}
-                />
-              </span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="mt-2 text-sm text-dim">Awaiting transmission</p>
-      )}
-    </article>
-  );
-}
-
-function EncodeStation(props: {
-  state: PlayerView;
-  team: TeamId;
-  busy: boolean;
-  onSubmit: (clues: string[]) => void;
-}) {
-  const { state, team } = props;
-  const isEncoder = state.encoders[team] === state.viewer.id;
-  const writing = isEncoder && !state.submittedClues[team];
-  return (
-    <div className="space-y-5">
-      <StationHead
-        eyebrow={`Encode // MSG ${messageId(state.round, team)}`}
-        title={writing ? 'You are encoding' : `${playerName(state, state.encoders[team])} is encoding`}
-        note={
-          writing
-            ? 'One clue per digit, in order. Clues go public the moment you transmit.'
-            : 'Both Encoders write at once. Use the time to study your keywords.'
-        }
-      />
-      {writing ? (
-        <EncodeForm state={state} team={team} busy={props.busy} onSubmit={props.onSubmit} />
-      ) : (
-        <div className="console:hidden">
-          <ShieldPanel state={state} />
-        </div>
-      )}
-      <div className="space-y-2">
-        <SectionRule>This round</SectionRule>
-        {[team, otherTeam(team)].map((candidate) => (
-          <ClueCard key={candidate} state={state} team={candidate} />
-        ))}
-      </div>
-    </div>
-  );
-}
+import { DIGITS, TEAMS, formatCode, otherTeam, playerName, teamName } from '../lib/game';
+import { EncryptStation } from './Encrypt';
 
 function GuessPad(props: {
   guess: GuessState;
+  title: string;
   clues: string[];
   idPrefix: string;
   disabled: boolean;
@@ -238,59 +53,60 @@ function GuessPad(props: {
 
   return (
     <div className="space-y-3">
-      <ol className="space-y-3">
-        {props.clues.map((clue, position) => (
-          <li key={position}>
-            <p className="mb-1 flex items-baseline gap-2 text-[15px] text-white">
-              <span className="text-xs text-dim">{position + 1}</span>
-              <span className="min-w-0 break-words">
-                <Teletype id={`${props.idPrefix}-${position}`} text={clue} delay={position * 180} />
-              </span>
-            </p>
-            <div
-              className="grid grid-cols-4 gap-1"
-              role="group"
-              aria-label={`Digit for clue ${position + 1}`}
-            >
-              {DIGITS.map((digit) => {
-                const active = draft[position] === digit;
-                return (
-                  <button
-                    key={digit}
-                    type="button"
-                    className="key"
-                    aria-pressed={active}
-                    data-used={!active && draft.includes(digit)}
-                    disabled={readOnly}
-                    onClick={() => choose(position, digit)}
-                  >
-                    {digit}
-                  </button>
-                );
-              })}
-            </div>
-          </li>
-        ))}
-      </ol>
+      <div className="pad">
+        <h3 className="stencil pad-title mb-2">{props.title}</h3>
+        <ol>
+          {props.clues.map((clue, position) => (
+            <li key={position} className="guess-row">
+              <p className="guess-clue">
+                <span>
+                  <Teletype id={`${props.idPrefix}-${position}`} text={clue} delay={position * 180} />
+                </span>
+              </p>
+              <div className="keys" role="group" aria-label={`Keyword for clue ${position + 1}`}>
+                {DIGITS.map((digit) => {
+                  const active = draft[position] === digit;
+                  return (
+                    <button
+                      key={digit}
+                      type="button"
+                      className="keycap"
+                      aria-pressed={active}
+                      data-used={!active && draft.includes(digit)}
+                      disabled={readOnly}
+                      onClick={() => choose(position, digit)}
+                    >
+                      {digit}
+                    </button>
+                  );
+                })}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
 
-      <div className="flex items-center justify-between gap-3 border-y border-rule py-2">
-        <p className="font-display text-2xl tracking-[0.14em] text-phosphor">
-          <span className="sr-only">Current guess </span>
-          {formatCode(draft)}
-        </p>
-        <p className="min-w-0 truncate text-xs text-muted">
+      <div className="readout">
+        <div className="tiles" role="img" aria-label={`Current guess ${formatCode(draft)}`}>
+          {draft.map((digit, index) => (
+            <span key={index} className="tile" aria-hidden="true">
+              {digit ?? '–'}
+            </span>
+          ))}
+        </div>
+        <p className="readout-note">
           {guess.locked
             ? `Locked by ${playerName(props.state, guess.lockedBy)}`
             : guess.updatedBy
-              ? `Edited by ${playerName(props.state, guess.updatedBy)}`
-              : 'Shared draft'}
+              ? `Set by ${playerName(props.state, guess.updatedBy)}`
+              : 'Your team shares this guess'}
         </p>
       </div>
 
       {!guess.locked && !props.disabled && (
         <ArmedButton
           primary
-          label="Lock in guess"
+          label={complete ? 'Lock it in' : 'Pick all three'}
           armedLabel="Tap again to lock"
           disabled={!complete || props.busy}
           onConfirm={() => {
@@ -306,18 +122,18 @@ function GuessPad(props: {
 function LockStatus({ state, team, kind }: { state: PlayerView; team: TeamId; kind: GuessKind }) {
   const own = kind === 'intercept' ? state.yourInterceptGuess : state.yourDecodeGuess;
   const theirs = state.opponentGuessStatus?.[kind].locked;
+  const rows: [TeamId, boolean][] = [
+    [team, !!own?.locked],
+    [otherTeam(team), !!theirs],
+  ];
   return (
-    <div className="border-t border-rule">
-      <StatusLine
-        label={<TeamLabel team={team} />}
-        value={own?.locked ? 'Locked' : 'Deciding'}
-        live={own?.locked}
-      />
-      <StatusLine
-        label={<TeamLabel team={otherTeam(team)} />}
-        value={theirs ? 'Locked' : 'Deciding'}
-        live={theirs}
-      />
+    <div className="status-strip">
+      {rows.map(([candidate, locked]) => (
+        <p key={candidate}>
+          <Lamp on={locked} />
+          {teamName(candidate)}: {locked ? 'locked' : 'deciding'}
+        </p>
+      ))}
     </div>
   );
 }
@@ -334,28 +150,30 @@ function GuessStation(props: {
   const intercepting = kind === 'intercept';
   const opponent = otherTeam(team);
   const target = intercepting ? opponent : team;
-  const isEncoder = state.encoders[team] === state.viewer.id;
-  const silent = !intercepting && isEncoder;
+  const isEncryptor = state.encoders[team] === state.viewer.id;
+  const silent = !intercepting && isEncryptor;
   const guess = intercepting ? state.yourInterceptGuess : state.yourDecodeGuess;
   const clues = state.submittedClues[target];
   if (!guess || !clues) return null;
 
   return (
-    <div className="space-y-5">
-      <StationHead
-        eyebrow={`${intercepting ? 'Intercept' : 'Decode'} // MSG ${messageId(state.round, target)}`}
-        title={intercepting ? `Crack ${teamName(opponent)}` : silent ? 'Stay silent' : 'Decode your clues'}
+    <div className="space-y-4">
+      <TaskHead
+        state={state}
+        title={intercepting ? 'Intercept attempt' : silent ? 'Stay silent' : 'Decode'}
         note={
           intercepting
-            ? 'Which of their keywords does each clue point at? Anyone on your team can lock it.'
+            ? `Which ${teamName(opponent)} keyword does each clue point to? Anyone on your team can lock.`
             : silent
               ? 'You wrote these. Watch your team work, and say nothing.'
-              : 'Match each clue to one of your keywords. Everyone but the Encoder can edit.'
+              : `Match ${playerName(state, state.encoders[team])}'s clues to your keywords.`
         }
       />
+      {!intercepting && <KeywordPanel state={state} mode="latch" />}
       <GuessPad
         key={`${kind}-${state.round}`}
         guess={guess}
+        title={intercepting ? 'Intercepted clues' : 'Your team’s clues'}
         clues={clues}
         idPrefix={`${state.roomCode}-${state.round}-${target}`}
         disabled={silent}
@@ -365,15 +183,11 @@ function GuessStation(props: {
         onLock={() => props.onLockGuess(kind)}
       />
       <LockStatus state={state} team={team} kind={kind} />
-      {intercepting ? (
-        <div className="space-y-2">
-          <SectionRule>{teamName(opponent)} clues so far</SectionRule>
+      {intercepting && (
+        <section className="space-y-2">
+          <h3 className="stencil text-[24px] leading-none">{teamName(opponent)} clues so far</h3>
           <KeywordBoard state={state} team={opponent} />
-        </div>
-      ) : (
-        <div className="console:hidden">
-          <ShieldPanel state={state} />
-        </div>
+        </section>
       )}
     </div>
   );
@@ -383,43 +197,43 @@ function RevealCard({ reveal, team }: { reveal: RoundReveal; team: TeamId }) {
   const entry = reveal.teams[team];
   const opponent = otherTeam(team);
   return (
-    <article className="printout">
-      <header className="flex items-center justify-between gap-3">
-        <TeamLabel team={team} />
-        <p className="text-xs text-muted">
-          MSG {messageId(reveal.round, team)} · {clock(reveal.revealedAt)}
-        </p>
+    <article className="case-file">
+      <header className="case-head">
+        <h3 className="case-title">{teamName(team)}</h3>
+        <Wheels code={entry.code} label={`Code ${entry.code.join(', ')}`} />
       </header>
-      <p className="mt-2 font-display text-4xl tracking-[0.12em] text-white">
-        <span className="sr-only">Code </span>
-        {formatCode(entry.code)}
-      </p>
-      <ol className="mt-1">
+      <ol className="mt-2">
         {entry.clues.map((clue, index) => (
-          <li key={index} className="printout-line">
-            <span className="font-display text-lg text-phosphor">{entry.code[index]}</span>
-            <span className="text-white">{clue}</span>
+          <li key={index} className="case-line">
+            <span>{entry.code[index]}</span>
+            <span>{clue}</span>
           </li>
         ))}
       </ol>
-      <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 border-t border-rule pt-2 text-sm">
-        <dt className="text-muted">{teamName(team)} decoded</dt>
-        <dd className="font-display tracking-[0.1em]">{formatCode(entry.ownGuess)}</dd>
+      <dl className="case-facts">
+        <dt>{teamName(team)} decoded</dt>
+        <dd>{formatCode(entry.ownGuess)}</dd>
         {entry.opponentGuess && (
           <>
-            <dt className="text-muted">{teamName(opponent)} intercept</dt>
-            <dd className="font-display tracking-[0.1em]">{formatCode(entry.opponentGuess)}</dd>
+            <dt>{teamName(opponent)} intercept</dt>
+            <dd>{formatCode(entry.opponentGuess)}</dd>
           </>
         )}
       </dl>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {entry.ownGuessCorrect ? (
-          <span className="stamp stamp-in text-secure-ink">Secure</span>
-        ) : (
-          <span className="stamp stamp-in text-compromised-ink">Miscommunication</span>
-        )}
+      <div className="case-outcome">
         {entry.interceptedByOpponent && (
-          <span className="stamp stamp-in text-intercepted [animation-delay:160ms]">Intercepted</span>
+          <>
+            <span className="stencil stamp stamp-big">Intercepted</span>
+            <p>{teamName(opponent)} cracked this code and takes a chip.</p>
+          </>
+        )}
+        {entry.ownGuessCorrect ? (
+          <span className="stencil stamp stamp-quiet">Decoded</span>
+        ) : (
+          <>
+            <span className="stencil stamp stamp-big stamp-lost">Signal lost</span>
+            <p>Miscommunication. {teamName(team)} misread its own clues and takes a chip.</p>
+          </>
         )}
       </div>
     </article>
@@ -430,7 +244,7 @@ export function RevealCards({ state, reveal }: { state: PlayerView; reveal: Roun
   const team = state.viewer.team;
   const order = team ? [team, otherTeam(team)] : TEAMS;
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2">
       {order.map((candidate) => (
         <RevealCard key={candidate} reveal={reveal} team={candidate} />
       ))}
@@ -442,25 +256,25 @@ function RevealStation(props: { state: PlayerView; busy: boolean; onNextRound: (
   const { state } = props;
   const reveal = state.lastReveal;
   return (
-    <div className="space-y-5">
-      <StationHead
-        eyebrow={`Reveal // Round ${String(state.round).padStart(2, '0')}`}
-        title="Codes declassified"
-        note={state.round === 1 ? 'No interceptions in round 1. The clues are now on file.' : undefined}
+    <div className="space-y-4">
+      <TaskHead
+        state={state}
+        title="Codes revealed"
+        note={state.round === 1 ? 'No intercept attempts in round 1. The clues are now on file.' : undefined}
       />
       {reveal && <RevealCards state={state} reveal={reveal} />}
-      {state.isHost ? (
-        <div className="sticky bottom-0 -mb-4 bg-obsidian pb-4 pt-2">
-          <button onClick={props.onNextRound} disabled={props.busy} className="btn btn-primary">
+      <div className="action-bar">
+        {state.isHost ? (
+          <button onClick={props.onNextRound} disabled={props.busy} className="hw-btn">
             Start round {state.round + 1}
           </button>
-        </div>
-      ) : (
-        <p className="border border-rule px-4 py-3 text-center text-sm text-muted">
-          Waiting for {playerName(state, state.players.find((player) => player.isHost)?.id)} to
-          start round {state.round + 1}
-        </p>
-      )}
+        ) : (
+          <p className="text-center">
+            Waiting for {playerName(state, state.players.find((player) => player.isHost)?.id)} to
+            start round {state.round + 1}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -476,10 +290,10 @@ export function Station(props: {
   const { state } = props;
   const team = state.viewer.team;
   if (!team) {
-    return <StationHead eyebrow="Observer" title="No team" note="You are not on a team in this game." />;
+    return <TaskHead state={state} title="Observer" note="You are not on a team in this game." />;
   }
   if (state.phase === 'encode') {
-    return <EncodeStation state={state} team={team} busy={props.busy} onSubmit={props.onSubmitClues} />;
+    return <EncryptStation state={state} team={team} busy={props.busy} onSubmit={props.onSubmitClues} />;
   }
   if (state.phase === 'intercept' || state.phase === 'decode') {
     return (

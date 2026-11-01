@@ -3,25 +3,8 @@ import type { Code, Digit, PlayerView, TeamId } from '@decrypto/shared';
 export const TEAMS: TeamId[] = ['black', 'white'];
 export const DIGITS: Digit[] = [1, 2, 3, 4];
 
-// The protocol keeps the ids 'black' and 'white'; every player-facing surface says Alpha and Beta.
 export function teamName(team: TeamId): string {
-  return team === 'black' ? 'Alpha' : 'Beta';
-}
-
-export function teamMark(team: TeamId): 'A' | 'B' {
-  return team === 'black' ? 'A' : 'B';
-}
-
-export function teamInk(team: TeamId): string {
-  return team === 'black' ? 'text-alpha-ink' : 'text-beta-ink';
-}
-
-export function teamFill(team: TeamId): string {
-  return team === 'black' ? 'bg-alpha' : 'bg-beta';
-}
-
-export function teamBorder(team: TeamId): string {
-  return team === 'black' ? 'border-alpha' : 'border-beta';
+  return team === 'black' ? 'Black' : 'White';
 }
 
 export function otherTeam(team: TeamId): TeamId {
@@ -37,18 +20,18 @@ export function playerName(state: PlayerView, playerId: string | null | undefine
   return state.players.find((player) => player.id === playerId)?.name ?? 'Unknown';
 }
 
-export function messageId(round: number, team: TeamId): string {
-  return `${String(round).padStart(2, '0')}-${teamMark(team)}`;
-}
-
-export function clock(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString('en-GB', { hour12: false });
+// Round 1 has no interception, so it is one step shorter.
+export function phaseStep(state: PlayerView): { step: number; steps: number } {
+  const order = ['encode', 'intercept', 'decode', 'reveal'].filter(
+    (phase) => phase !== 'intercept' || state.round > 1,
+  );
+  return { step: order.indexOf(state.phase) + 1, steps: order.length };
 }
 
 export function phaseLabel(phase: PlayerView['phase']): string {
   switch (phase) {
     case 'encode':
-      return 'Encode';
+      return 'Encrypt';
     case 'intercept':
       return 'Intercept';
     case 'decode':

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { TeamId } from '@decrypto/shared';
+import type { PlayerView } from '@decrypto/shared';
 import { cue } from '../lib/feedback';
-import { teamFill, teamMark, teamName } from '../lib/game';
+import { phaseStep } from '../lib/game';
 
 const CHARACTER_MS = 26;
 const typed = new Set<string>();
@@ -71,84 +71,45 @@ export function ArmedButton(props: {
       type="button"
       onClick={onClick}
       disabled={props.disabled}
-      className={`btn ${armed ? 'btn-armed' : props.primary ? 'btn-primary' : ''}`}
+      data-armed={armed}
+      className={`hw-btn ${props.primary ? '' : 'hw-btn-plain'}`}
     >
       {armed ? props.armedLabel : props.label}
     </button>
   );
 }
 
-export function TeamTag({ team, size = 'sm' }: { team: TeamId; size?: 'sm' | 'lg' }) {
-  return (
-    <span
-      className={`inline-flex flex-none items-center justify-center font-display text-black ${teamFill(team)} ${
-        size === 'lg' ? 'h-8 w-8 text-xl' : 'h-5 w-5 text-sm'
-      }`}
-      aria-hidden="true"
-    >
-      {teamMark(team)}
-    </span>
-  );
+export function Tag({ children }: { children: string }) {
+  return <span className="tag">{children}</span>;
 }
 
-export function TeamLabel({ team }: { team: TeamId }) {
-  return (
-    <span className="flex items-center gap-2">
-      <TeamTag team={team} />
-      <span className="eyebrow">{teamName(team)}</span>
-    </span>
-  );
-}
-
-export function StationHead(props: { eyebrow: string; title: string; note?: string }) {
+export function TaskHead(props: { state: PlayerView; title: string; note?: string }) {
+  const { step, steps } = phaseStep(props.state);
   return (
     <header>
-      <p className="eyebrow text-phosphor">{props.eyebrow}</p>
-      <h2 className="headline mt-1">{props.title}</h2>
-      {props.note && <p className="mt-2 text-sm leading-6 text-muted">{props.note}</p>}
+      {step > 0 && (
+        <p className="task-step">
+          Step {step} of {steps}
+        </p>
+      )}
+      <h2 className="stencil task-title">{props.title}</h2>
+      {props.note && <p className="task-note">{props.note}</p>}
     </header>
   );
 }
 
-export function SectionRule({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 text-muted">
-      <span className="eyebrow flex-none">{children}</span>
-      <span className="h-px flex-1 bg-rule" />
-    </div>
-  );
-}
-
-export function StatusLine(props: { label: ReactNode; value: string; live?: boolean }) {
-  return (
-    <div className="flex min-h-11 items-center justify-between gap-3 border-b border-rule last:border-b-0">
-      <span>{props.label}</span>
-      <span className={`eyebrow ${props.live ? 'text-secure-ink' : 'text-muted'}`}>
-        {props.value}
-      </span>
-    </div>
-  );
-}
-
 export function Notice(props: {
-  tone?: 'amber' | 'red';
+  tone?: 'paper';
   children: ReactNode;
   onDismiss?: () => void;
   dismissLabel?: string;
   quiet?: boolean;
 }) {
-  const toneClass =
-    props.tone === 'red'
-      ? 'border-compromised text-compromised-ink'
-      : 'border-intercepted text-intercepted';
   return (
-    <div
-      role={props.quiet ? undefined : 'alert'}
-      className={`flex items-center justify-between gap-3 border-l-4 bg-plate px-3 py-2 text-sm ${toneClass}`}
-    >
+    <div role={props.quiet ? undefined : 'alert'} className="notice" data-tone={props.tone}>
       <span>{props.children}</span>
       {props.onDismiss && (
-        <button type="button" onClick={props.onDismiss} className="eyebrow min-h-11 flex-none px-1">
+        <button type="button" onClick={props.onDismiss} className="min-h-11 flex-none px-1 underline">
           {props.dismissLabel ?? 'Clear'}
         </button>
       )}

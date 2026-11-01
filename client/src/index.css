@@ -1,34 +1,10 @@
-/*
- * Concept: the phone is a field cipher unit. Secrets stay printed as ciphertext until a red
- * gel slides across them, the way the board game's decoder card works, so a face-up phone
- * on the table gives nothing away.
- * Register: retro-technical. Square corners, 1px rules, stepped mechanical motion.
- */
-@import '@fontsource/share-tech-mono/latin-400.css';
-
-@font-face {
-  font-family: 'JetBrains Mono Variable';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 800;
-  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2')
-    format('woff2-variations');
-}
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@property --reveal {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 0;
-}
-
 :root {
   color-scheme: dark;
   --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-state: 0.16s;
   --dur-travel: 0.42s;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -45,10 +21,7 @@ body {
   margin: 0;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #121214;
-  color: #e0e0e0;
-  font-family: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
@@ -64,538 +37,81 @@ button {
   touch-action: manipulation;
 }
 
-:focus-visible {
-  outline: 2px solid #33ff66;
-  outline-offset: 2px;
+.shell {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 100dvh;
 }
 
-::selection {
-  background: #d32f2f;
-  color: #000;
+.shell-plain {
+  grid-template-rows: minmax(0, 1fr);
 }
 
-@layer components {
-  /* ---- Shell ---- */
-  .shell {
-    position: relative;
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
-    height: 100dvh;
-    background: linear-gradient(180deg, #181a1f 0, #121214 240px);
-  }
-
-  /* Static scanlines: a texture, so they never animate. */
-  .shell::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      0deg,
-      rgb(255 255 255 / 0.022) 0 1px,
-      transparent 1px 3px
-    );
-  }
-
-  .scroller {
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: #343943 transparent;
-  }
-
-  .gutter {
-    padding-inline: max(var(--gutter), env(safe-area-inset-left, 0px))
-      max(var(--gutter), env(safe-area-inset-right, 0px));
-  }
-
-  .skip-link {
-    position: absolute;
-    left: 8px;
-    top: 8px;
-    z-index: 20;
-    transform: translateY(-200%);
-    background: #33ff66;
-    color: #000;
-    padding: 10px 14px;
-  }
-
-  .skip-link:focus {
-    transform: none;
-  }
-
-  /* ---- Type ---- */
-  .eyebrow {
-    font-family: 'JetBrains Mono Variable', ui-monospace, monospace;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.4;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-  }
-
-  .headline {
-    font-family: 'Share Tech Mono', ui-monospace, monospace;
-    font-size: 26px;
-    line-height: 1.15;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #fff;
-  }
-
-  /* ---- Controls ---- */
-  .btn {
-    display: flex;
-    min-height: 52px;
-    width: 100%;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    border: 1px solid #343943;
-    background: transparent;
-    padding: 10px 16px;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: #e0e0e0;
-    transition:
-      background-color var(--dur-state) linear,
-      color var(--dur-state) linear,
-      border-color var(--dur-state) linear,
-      transform var(--dur-state) var(--ease-snap);
-  }
-
-  .btn:active:not(:disabled) {
-    transform: translateY(1px);
-  }
-
-  .btn:disabled {
-    cursor: not-allowed;
-    border-color: #2a2e36;
-    color: #8a909b;
-  }
-
-  .btn-primary:not(:disabled) {
-    border-color: #33ff66;
-    background: #33ff66;
-    color: #000;
-  }
-
-  .btn-primary:disabled {
-    background: #1f2228;
-  }
-
-  .btn-armed:not(:disabled) {
-    border-color: #fb8c00;
-    background: #fb8c00;
-    color: #000;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .btn:hover:not(:disabled):not(.btn-primary):not(.btn-armed) {
-      border-color: #33ff66;
-      color: #33ff66;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: #7dffa0;
-    }
-  }
-
-  .field {
-    display: block;
-    width: 100%;
-    min-height: 52px;
-    border: 1px solid #343943;
-    border-radius: 0;
-    background: #0d0d0f;
-    padding: 12px 14px;
-    /* 16px keeps iOS from zooming the page on focus. */
-    font-size: 16px;
-    color: #fff;
-    caret-color: #33ff66;
-    transition: border-color var(--dur-state) linear;
-  }
-
-  .field::placeholder {
-    color: #8a909b;
-  }
-
-  .field:focus {
-    border-color: #33ff66;
-    outline: none;
-  }
-
-  .field[aria-invalid='true'] {
-    border-color: #fb8c00;
-  }
-
-  /* ---- Signature: the Decrypt Filter ----
-     Every strip is the same width and reads one shared --reveal, so strips stacked anywhere
-     on screen line up into a single red edge. */
-  .filter-scope {
-    display: contents;
-    transition: --reveal var(--dur-travel) var(--ease-snap);
-  }
-
-  .filter-scope[data-dragging='true'] {
-    transition: none;
-  }
-
-  .strip {
-    position: relative;
-    display: grid;
-    width: 100%;
-    overflow: hidden;
-    border: 1px solid #343943;
-    text-align: left;
-    touch-action: pan-y;
-  }
-
-  .strip-layer {
-    grid-area: 1 / 1;
-    display: flex;
-    min-height: 48px;
-    min-width: 0;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    font-family: 'Share Tech Mono', ui-monospace, monospace;
-    font-size: 20px;
-    line-height: 1.15;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .strip-tag {
-    flex: none;
-    width: 1.1em;
-    text-align: center;
-  }
-
-  .strip-cipher {
-    background-color: #1f2228;
-    background-image:
-      repeating-linear-gradient(115deg, rgb(229 57 53 / 0.3) 0 1px, transparent 1px 6px),
-      repeating-linear-gradient(25deg, rgb(229 57 53 / 0.16) 0 1px, transparent 1px 9px);
-    color: #6cb8f7;
-    white-space: nowrap;
-  }
-
-  .strip-clear {
-    background: #e53935;
-    color: #000;
-    clip-path: inset(0 calc(100% - var(--reveal) * 1%) 0 0);
-  }
-
-  .strip::after {
-    content: '';
-    position: absolute;
-    inset-block: 0;
-    left: calc(var(--reveal) * 1%);
-    width: 2px;
-    margin-left: -2px;
-    background: #ffb4ab;
-    opacity: clamp(0, var(--reveal), 1);
-  }
-
-  .filter-range {
-    --thumb: 56px;
-    display: block;
-    width: 100%;
-    height: 52px;
-    margin: 0;
-    appearance: none;
-    -webkit-appearance: none;
-    border: 1px solid #343943;
-    border-radius: 0;
-    background:
-      linear-gradient(90deg, #d32f2f calc(var(--reveal) * 1%), transparent 0),
-      repeating-linear-gradient(90deg, #343943 0 1px, transparent 1px 12px) 0 100% / 100% 8px no-repeat,
-      #0d0d0f;
-    cursor: grab;
-    touch-action: pan-y;
-  }
-
-  .filter-range:active {
-    cursor: grabbing;
-  }
-
-  .filter-range::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: var(--thumb);
-    height: 50px;
-    border: 0;
-    border-inline: 2px solid #ffb4ab;
-    background:
-      repeating-linear-gradient(90deg, rgb(0 0 0 / 0.5) 0 2px, transparent 2px 6px) center / 22px 22px
-        no-repeat,
-      #e53935;
-  }
-
-  .filter-range::-moz-range-thumb {
-    width: var(--thumb);
-    height: 50px;
-    border: 0;
-    border-radius: 0;
-    background: #e53935;
-  }
-
-  .filter-range[data-nudge='true'] {
-    animation: range-hint 2.4s var(--ease-snap) 0.6s 2;
-  }
-
-  @keyframes range-hint {
-    0%,
-    70%,
-    100% {
-      box-shadow: inset 0 0 0 0 transparent;
-    }
-    80% {
-      box-shadow: inset 34px 0 0 0 rgb(229 57 53 / 0.45);
-    }
-  }
-
-  /* The wordmark runs the same mechanism on load, so the first thing you see teaches it. */
-  .wordmark {
-    --reveal: 100;
-    position: relative;
-    display: grid;
-    overflow: hidden;
-    font-family: 'Share Tech Mono', ui-monospace, monospace;
-    font-size: min(19.2vw, 112px);
-    line-height: 1;
-    letter-spacing: 0.02em;
-    animation: wordmark-sweep 1s var(--ease-snap) 0.35s backwards;
-  }
-
-  .wordmark > span {
-    grid-area: 1 / 1;
-    padding: 0.14em 0.1em 0.1em;
-    white-space: nowrap;
-  }
-
-  .wordmark-cipher {
-    background-color: #1f2228;
-    background-image: repeating-linear-gradient(115deg, rgb(229 57 53 / 0.3) 0 1px, transparent 1px 6px);
-    color: #6cb8f7;
-  }
-
-  .wordmark-clear {
-    background: #e53935;
-    color: #000;
-    clip-path: inset(0 calc(100% - var(--reveal) * 1%) 0 0);
-  }
-
-  @keyframes wordmark-sweep {
-    from {
-      --reveal: 0;
-    }
-  }
-
-  /* ---- Teletype printout ---- */
-  .printout {
-    position: relative;
-    border: 1px solid #343943;
-    background-color: #16181c;
-    background-image: radial-gradient(circle, #343943 2px, transparent 2.5px);
-    background-position: 2px 0;
-    background-repeat: repeat-y;
-    background-size: 12px 18px;
-    padding: 12px 14px 12px 24px;
-  }
-
-  .printout-line {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    padding-block: 3px;
-    overflow-wrap: anywhere;
-  }
-
-  .cursor {
-    display: inline-block;
-    width: 0.6em;
-    height: 1em;
-    margin-left: 1px;
-    vertical-align: -0.12em;
-    background: currentColor;
-  }
-
-  .stamp {
-    display: inline-block;
-    border: 2px solid currentColor;
-    padding: 2px 8px;
-    font-family: 'Share Tech Mono', ui-monospace, monospace;
-    font-size: 15px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    transform: rotate(-3deg);
-  }
-
-  .stamp-in {
-    animation: stamp-down 0.32s steps(4) both;
-  }
-
-  @keyframes stamp-down {
-    from {
-      opacity: 0;
-      transform: rotate(-3deg) scale(1.7);
-    }
-  }
-
-  /* ---- Guess keypad ---- */
-  .key {
-    position: relative;
-    min-height: 52px;
-    border: 1px solid #343943;
-    background: #1f2228;
-    font-family: 'Share Tech Mono', ui-monospace, monospace;
-    font-size: 24px;
-    color: #fff;
-    transition:
-      background-color var(--dur-state) linear,
-      border-color var(--dur-state) linear;
-  }
-
-  .key[aria-pressed='true'] {
-    border-color: #33ff66;
-    background: #33ff66;
-    color: #000;
-  }
-
-  .key[data-used='true'] {
-    color: #8a909b;
-    background: #16181c;
-  }
-
-  .key:disabled {
-    cursor: not-allowed;
-  }
-
-  .key:disabled:not([aria-pressed='true']) {
-    color: #5d636d;
-    background: transparent;
-  }
-
-  /* ---- Phase tape ---- */
-  .tape {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .tape-cell {
-    border-left: 1px solid #343943;
-    padding: 5px 2px;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #8a909b;
-  }
-
-  .tape-cell:first-child {
-    border-left: 0;
-  }
-
-  .tape-cell[aria-current='step'] {
-    background: #33ff66;
-    color: #000;
-  }
-
-  .tape-cell[data-state='past'] {
-    color: #a3a9b3;
-  }
-
-  .tape-cell[data-state='skip'] {
-    text-decoration: line-through;
-  }
-
-  /* ---- Sheets ---- */
-  .sheet {
-    position: fixed;
-    inset: auto 0 0;
-    width: 100%;
-    max-width: 640px;
-    max-height: 88dvh;
-    margin: 0 auto;
-    border: 0;
-    border-top: 2px solid #33ff66;
-    background: #181a1f;
-    padding: 0;
-    color: #e0e0e0;
-    animation: sheet-up var(--dur-travel) var(--ease-snap);
-  }
-
-  .sheet[open] {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .sheet::backdrop {
-    background: rgb(0 0 0 / 0.7);
-  }
-
-  .sheet-grip {
-    display: flex;
-    min-height: 44px;
-    flex: none;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-block: 6px;
-    border-bottom: 1px solid #343943;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-
-  @keyframes sheet-up {
-    from {
-      transform: translateY(40px);
-      opacity: 0;
-    }
-  }
-
-  /* ---- Screen change ---- */
-  .screen-in {
-    animation: screen-in var(--dur-travel) var(--ease-snap) both;
-  }
-
-  @keyframes screen-in {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-  }
-
-  /* ---- Desktop console: all three stations on one casing ---- */
-  .console {
-    min-height: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  @media (min-width: 1100px) {
-    .console[data-layout='game'] {
-      grid-template-columns: 340px minmax(0, 1fr) 400px;
-    }
-
-    .console[data-layout='game'] > * + * {
-      border-left: 1px solid #343943;
-    }
-  }
-
-  /* Give the keyboard the dock's height back while someone is typing on a phone. */
-  @media (max-width: 1099px) and (hover: none) {
-    .shell:has(input:not([type='range']):focus) .dock {
-      display: none;
-    }
+.scroller {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.gutter {
+  padding-inline: max(var(--gutter), env(safe-area-inset-left, 0px))
+    max(var(--gutter), env(safe-area-inset-right, 0px));
+}
+
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 20;
+  transform: translateY(-200%);
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 10px 14px;
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+.screen-in {
+  animation: screen-in var(--dur-travel) var(--ease-snap) both;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: -0.12em;
+  background: currentColor;
+}
+
+.console {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1100px) {
+  .console[data-layout='game'] {
+    grid-template-columns: minmax(0, 1fr) 420px;
+  }
+}
+
+/* Give the keyboard the dock's height back while someone is typing on a phone. */
+@media (max-width: 1099px) and (hover: none) {
+  .shell:has(input:focus) .dock {
+    display: none;
   }
 }
 

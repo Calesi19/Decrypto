@@ -81,14 +81,10 @@ export function Sheet(props: {
         onPointerUp={onGripUp}
         onPointerCancel={onGripUp}
       >
-        <h2 tabIndex={-1} className="eyebrow text-ink outline-none">
+        <h2 tabIndex={-1} className="stencil sheet-title">
           {props.title}
         </h2>
-        <button
-          type="button"
-          onClick={props.onClose}
-          className="eyebrow -mr-2 min-h-11 px-2 text-muted"
-        >
+        <button type="button" onClick={props.onClose} className="hw-key sheet-close">
           Close
         </button>
       </div>

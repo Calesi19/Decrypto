@@ -1,42 +1,35 @@
 import type { PlayerView } from '@decrypto/shared';
-import { DIGITS, formatCode, playerName, teamName } from '../lib/game';
-import { TeamLabel } from './Bits';
-import { FilterSlider, ShieldStrip } from './Filter';
+import { CodeCard, HoldButton, Terminal, ToggleSwitch, useShutters } from './Hardware';
 
-export function ShieldPanel({ state }: { state: PlayerView }) {
+// `peek` shows the keywords only while held. `latch` opens on a hold and stays open,
+// for work that needs the keywords on screen: the team cannot decode one-handed.
+export function KeywordPanel({ state, mode }: { state: PlayerView; mode: 'peek' | 'latch' }) {
+  const { latched, setLatched, held, setHeld, open } = useShutters();
   const team = state.viewer.team;
   if (!team) return null;
-  const words = state.keywords[team] ?? [];
-  const encoderId = state.encoders[team];
+  const code = state.encoders[team] === state.viewer.id ? state.currentCode : null;
+
   return (
-    <section aria-label={`${teamName(team)} encryption shield`} className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <TeamLabel team={team} />
-        <p className="truncate text-xs text-muted">
-          Encoder: {encoderId === state.viewer.id ? 'you' : playerName(state, encoderId)}
-        </p>
-      </div>
-      <div className="space-y-1">
-        {DIGITS.map((digit) => (
-          <ShieldStrip
-            key={digit}
-            tag={String(digit)}
-            text={words[digit - 1] ?? ''}
-            seed={`${team}-${digit}`}
-          />
-        ))}
-      </div>
-      {state.currentCode && (
-        <div className="space-y-1">
-          <p className="eyebrow text-muted">Your code this round</p>
-          <ShieldStrip
-            tag="»"
-            text={formatCode(state.currentCode)}
-            seed={`${team}-code-${state.round}`}
-          />
-        </div>
+    <div className="space-y-3">
+      <Terminal
+        team={team}
+        open={open}
+        words={state.keywords[team] ?? []}
+        lit={code}
+        control={
+          latched ? (
+            <ToggleSwitch label="Shutters" checked={latched} onChange={setLatched} />
+          ) : undefined
+        }
+      />
+      {!latched && (
+        <HoldButton
+          label={mode === 'latch' ? 'Hold to open' : 'Hold to view'}
+          onOpen={() => (mode === 'latch' ? setLatched(true) : setHeld(true))}
+          onRelease={() => setHeld(false)}
+        />
       )}
-      <FilterSlider />
-    </section>
+      {open && code && <CodeCard code={code} round={state.round} />}
+    </div>
   );
 }

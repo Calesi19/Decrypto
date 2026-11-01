@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { unlockAudio } from './lib/feedback';
 import './index.css';
+import './hardware.css';
 
 window.addEventListener('pointerdown', unlockAudio, { once: true });
 

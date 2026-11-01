@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import type { PlayerView, RoundReveal, TeamId } from '@decrypto/shared';
-import { DIGITS, TEAMS, clock, formatCode, messageId, otherTeam } from '../lib/game';
-import { SectionRule, TeamLabel } from './Bits';
-import { ShieldStrip } from './Filter';
+import { DIGITS, TEAMS, formatCode, otherTeam, teamName } from '../lib/game';
 
 type LogView = 'round' | 'keyword';
 
@@ -13,28 +11,25 @@ function teamOrder(viewerTeam: TeamId | null): TeamId[] {
 function LogEntry({ reveal, team }: { reveal: RoundReveal; team: TeamId }) {
   const entry = reveal.teams[team];
   return (
-    <article className="printout">
-      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <TeamLabel team={team} />
-        <p className="text-xs text-muted">
-          MSG {messageId(reveal.round, team)} · {clock(reveal.revealedAt)}
-        </p>
+    <article className="case-file">
+      <header className="case-head">
+        <h4 className="case-title">{teamName(team)}</h4>
+        <p>{formatCode(entry.code)}</p>
       </header>
-      <ol className="mt-2">
+      <ol className="mt-1">
         {entry.clues.map((clue, index) => (
-          <li key={index} className="printout-line">
-            <span className="font-display text-lg text-phosphor">{entry.code[index]}</span>
-            <span className="text-white">{clue}</span>
+          <li key={index} className="case-line">
+            <span>{entry.code[index]}</span>
+            <span>{clue}</span>
           </li>
         ))}
       </ol>
-      <p className="mt-2 text-xs text-muted">
-        Code {formatCode(entry.code)}
-        {entry.interceptedByOpponent && <span className="text-intercepted"> · Intercepted</span>}
-        {!entry.ownGuessCorrect && (
-          <span className="text-compromised-ink"> · Miscommunication</span>
-        )}
-      </p>
+      {(entry.interceptedByOpponent || !entry.ownGuessCorrect) && (
+        <p className="mt-2 text-[15px]">
+          {entry.interceptedByOpponent && 'Intercepted. '}
+          {!entry.ownGuessCorrect && 'Miscommunication.'}
+        </p>
+      )}
     </article>
   );
 }
@@ -46,7 +41,7 @@ function ByRound({ state }: { state: PlayerView }) {
     <div className="space-y-5">
       {[...state.roundHistory].reverse().map((reveal) => (
         <section key={reveal.round} className="space-y-2">
-          <SectionRule>Round {String(reveal.round).padStart(2, '0')}</SectionRule>
+          <h3 className="stencil text-[24px] leading-none">Round {reveal.round}</h3>
           {order.map((team) => (
             <LogEntry key={team} reveal={reveal} team={team} />
           ))}
@@ -57,38 +52,32 @@ function ByRound({ state }: { state: PlayerView }) {
 }
 
 export function KeywordBoard({ state, team }: { state: PlayerView; team: TeamId }) {
-  const masked = team === state.viewer.team && !state.allKeywordsRevealed;
-  const words = state.keywords[team];
+  // Your own words stay out of the log: it is often read with the phone flat on the table.
+  const visible = team !== state.viewer.team || state.allKeywordsRevealed;
+  const words = visible ? state.keywords[team] : null;
   return (
-    <div className={`grid gap-2 ${masked ? 'grid-cols-1' : 'grid-cols-2'}`}>
+    <div className="dossier-grid">
       {DIGITS.map((digit) => {
         const clues = state.clueHistory[team][digit];
+        const word = words?.[digit - 1];
         return (
-          <div key={digit} className="min-w-0 border border-rule bg-[#16181c]">
-            {masked ? (
-              <ShieldStrip
-                tag={String(digit)}
-                text={words?.[digit - 1] ?? ''}
-                seed={`${team}-${digit}`}
-              />
-            ) : (
-              <p className="flex items-baseline gap-2 border-b border-rule bg-plate px-2.5 py-1.5 font-display text-lg uppercase tracking-[0.08em] text-white">
-                <span className="text-phosphor">{digit}</span>
-                <span className="min-w-0 break-words">{words?.[digit - 1] ?? ''}</span>
-              </p>
-            )}
-            <ul className="space-y-0.5 px-2.5 py-2 text-sm">
-              {clues.length ? (
-                clues.map((clue, index) => (
-                  <li key={`${clue}-${index}`} className="break-words text-ink">
-                    {clue}
-                  </li>
-                ))
+          <article key={digit} className="dossier">
+            <h4 className="dossier-head">
+              Keyword {digit}
+              {word ? (
+                <span className="dossier-word">{word}</span>
               ) : (
-                <li className="text-dim">No traffic</li>
+                <span className="redacted" role="img" aria-label="Classified" />
+              )}
+            </h4>
+            <ul>
+              {clues.length ? (
+                clues.map((clue, index) => <li key={`${clue}-${index}`}>{clue}</li>)
+              ) : (
+                <li className="dossier-none">Nothing on file</li>
               )}
             </ul>
-          </div>
+          </article>
         );
       })}
     </div>
@@ -100,7 +89,7 @@ function ByKeyword({ state }: { state: PlayerView }) {
     <div className="space-y-5">
       {teamOrder(state.viewer.team).map((team) => (
         <section key={team} className="space-y-2">
-          <TeamLabel team={team} />
+          <h3 className="stencil text-[24px] leading-none">{teamName(team)}</h3>
           <KeywordBoard state={state} team={team} />
         </section>
       ))}
@@ -110,9 +99,7 @@ function ByKeyword({ state }: { state: PlayerView }) {
 
 function EmptyLog() {
   return (
-    <p className="border border-dashed border-rule p-4 text-sm leading-6 text-muted">
-      No traffic logged yet. Every clue files here at the end of its round.
-    </p>
+    <p className="case-file">Nothing on file yet. Every clue is filed at the end of its round.</p>
   );
 }
 
@@ -120,16 +107,14 @@ export function LogPanel({ state }: { state: PlayerView }) {
   const [view, setView] = useState<LogView>('round');
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-px bg-rule p-px" role="group" aria-label="Sort the log">
+      <div className="segment" role="group" aria-label="Sort the log">
         {(['round', 'keyword'] as const).map((option) => (
           <button
             key={option}
             type="button"
             aria-pressed={view === option}
             onClick={() => setView(option)}
-            className={`eyebrow min-h-11 ${
-              view === option ? 'bg-ink text-black' : 'bg-casing text-muted'
-            }`}
+            className="hw-key"
           >
             By {option}
           </button>
