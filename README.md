@@ -1,3 +1,5 @@
+![Decrypto: give clues your team can crack and the other team cannot.](docs/banner.webp)
+
 # Decrypto
 
 A multiplayer web implementation of **Decrypto**: two teams, secret keywords, three-digit codes, written clues, interceptions, and miscommunications. It mirrors the architecture of the Just One project — TypeScript everywhere, an Express + Socket.IO server with in-memory rooms, a pure shared game engine, and a mobile-first, installable Vite + React + Tailwind PWA client. There is no database and nothing is deployed yet.
